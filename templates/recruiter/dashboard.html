@@ -11,7 +11,7 @@
     </div>
 
     <!-- Search Section -->
-    <div class="max-w-3xl mx-auto mb-12">
+    <div class="max-w-3xl mx-auto mb-6">
         <form method="POST" action="{{ url_for('recruiter.index') }}" class="space-y-4">
             <div class="relative">
                 <input type="text" 
@@ -30,17 +30,112 @@
         </form>
     </div>
 
+    <!-- Filter Labels -->
+    {% if filters %}
+    <div class="flex flex-wrap gap-3 mb-8 justify-center">
+        <span class="px-4 py-2 rounded-full text-sm font-medium border transition-colors duration-200 {% if filters.location %}bg-green-100 text-green-800 border-green-300{% else %}bg-gray-100 text-gray-400 border-gray-200{% endif %}">
+            &#10003; Location
+        </span>
+        <span class="px-4 py-2 rounded-full text-sm font-medium border transition-colors duration-200 {% if filters.job_title %}bg-green-100 text-green-800 border-green-300{% else %}bg-gray-100 text-gray-400 border-gray-200{% endif %}">
+            &#10003; Job Title
+        </span>
+        <span class="px-4 py-2 rounded-full text-sm font-medium border transition-colors duration-200 {% if filters.years_of_experience %}bg-green-100 text-green-800 border-green-300{% else %}bg-gray-100 text-gray-400 border-gray-200{% endif %}">
+            &#10003; Years of Experience
+        </span>
+        <span class="px-4 py-2 rounded-full text-sm font-medium border transition-colors duration-200 {% if filters.industry %}bg-green-100 text-green-800 border-green-300{% else %}bg-gray-100 text-gray-400 border-gray-200{% endif %}">
+            &#10003; Industry
+        </span>
+        <span class="px-4 py-2 rounded-full text-sm font-medium border transition-colors duration-200 {% if filters.skills %}bg-green-100 text-green-800 border-green-300{% else %}bg-gray-100 text-gray-400 border-gray-200{% endif %}">
+            &#10003; Skills
+        </span>
+    </div>
+    {% endif %}
+
     <!-- Results Section -->
     <div class="max-w-4xl mx-auto">
         <div class="bg-white rounded-lg shadow-lg p-8">
             <h2 class="text-2xl font-semibold mb-6">Search Results</h2>
             
             {% if search_query %}
-                <!-- TODO: Replace with actual candidate results -->
-                <div class="text-center py-12">
-                    <p class="text-gray-600 mb-4">Search query: "{{ search_query }}"</p>
-                    <p class="text-gray-500">Matched candidates will appear here...</p>
-                </div>
+                {% if candidates %}
+                    <!-- Show structured query interpretation -->
+                    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                        <h3 class="text-lg font-medium mb-2">Search Criteria:</h3>
+                        <ul class="list-disc list-inside text-gray-600">
+                            {% if structured_query.skills %}
+                            <li>Skills: {{ structured_query.skills|join(', ') }}</li>
+                            {% endif %}
+                            {% if structured_query.min_experience_years %}
+                            <li>Minimum Experience: {{ structured_query.min_experience_years }} years</li>
+                            {% endif %}
+                            {% if structured_query.location %}
+                            <li>Location: {{ structured_query.location }}</li>
+                            {% endif %}
+                            {% if structured_query.job_title %}
+                            <li>Job Title: {{ structured_query.job_title }}</li>
+                            {% endif %}
+                            {% if structured_query.industry %}
+                            <li>Industry: {{ structured_query.industry }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+
+                    <!-- Show candidates -->
+                    <div class="space-y-6">
+                        {% for candidate in candidates %}
+                        <div class="border rounded-lg p-6 hover:shadow-md transition-shadow duration-200">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-xl font-semibold mb-2">
+                                        <a href="{{ url_for('candidate.profile', candidate_id=candidate.id) }}" 
+                                           class="text-blue-600 hover:underline">
+                                            {{ candidate.name }}
+                                        </a>
+                                    </h3>
+                                    <div class="space-y-2">
+                                        {% if candidate.skills %}
+                                        <div>
+                                            <span class="text-gray-600">Skills:</span>
+                                            <div class="flex flex-wrap gap-2 mt-1">
+                                                {% for skill in candidate.skills %}
+                                                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
+                                                    {{ skill }}
+                                                </span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if candidate.current_location %}
+                                        <div>
+                                            <span class="text-gray-600">Location:</span>
+                                            <span class="ml-2">{{ candidate.current_location }}</span>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if candidate.experience_years %}
+                                        <div>
+                                            <span class="text-gray-600">Experience:</span>
+                                            <span class="ml-2">{{ candidate.experience_years }} years</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                                        Match Score: {{ candidate.rank_score }}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-12">
+                        <p class="text-gray-600 mb-4">No candidates found matching your criteria</p>
+                        <p class="text-gray-500">Try adjusting your search query</p>
+                    </div>
+                {% endif %}
             {% else %}
                 <div class="text-center py-12">
                     <p class="text-gray-500">Enter a search query above to find matching candidates</p>
