@@ -34,7 +34,7 @@ def parse_resume_with_gemini(resume_text):
                 role="user",
                 parts=[
                     types.Part.from_text(text="""You are an expert resume parser. I will give you the raw text of a resume.  
-Your task is to extract the following fields **accurately** and return the result in valid JSON **only** (no explanation, no formatting, no extra text):
+Your task is to extract the following fields **accurately** and return ONLY a valid JSON object (no explanation, no formatting, no markdown, no code blocks, just the raw JSON):
 
 - name
 - email
@@ -46,19 +46,8 @@ Your task is to extract the following fields **accurately** and return the resul
 - linkedin (if mentioned)
 - github (if mentioned)
 
-Return only a JSON object like this (example):
-
-{
-  "name": "Jane Doe",
-  "email": "jane.doe@gmail.com",
-  "phone": "+1-234-567-8901",
-  "skills": ["Python", "LangChain", "NLP", "RAG", "LLMs"],
-  "experience_years": 5,
-  "education": "M.Sc. in Computer Science",
-  "current_location": "Berlin, Germany",
-  "linkedin": "https://linkedin.com/in/janedoe",
-  "github": "https://github.com/janedoe"
-}
+Example of expected response (just the JSON, nothing else):
+{"name": "Jane Doe", "email": "jane.doe@gmail.com", "phone": "+1-234-567-8901", "skills": ["Python", "LangChain", "NLP", "RAG", "LLMs"], "experience_years": 5, "education": "M.Sc. in Computer Science", "current_location": "Berlin, Germany", "linkedin": "https://linkedin.com/in/janedoe", "github": "https://github.com/janedoe"}
 
 Now here is the resume: """ + resume_text),
                 ],
@@ -76,13 +65,14 @@ Now here is the resume: """ + resume_text),
         )
         
         # Get the raw response
-        raw_response = response.text
+        raw_response = response.text.strip()
         
-        # Extract JSON from response
-        if "```json" in raw_response:
-            json_str = raw_response.split("```json")[1].split("```")[0].strip()
-        else:
-            json_str = raw_response.strip()
+        # Clean the response - remove any markdown or code block indicators
+        json_str = raw_response
+        if "```json" in json_str:
+            json_str = json_str.split("```json")[1].split("```")[0].strip()
+        elif "```" in json_str:
+            json_str = json_str.split("```")[1].split("```")[0].strip()
             
         # Parse JSON
         parsed_data = json.loads(json_str)

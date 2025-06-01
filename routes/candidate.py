@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for
+from flask import Blueprint, render_template, request, flash, redirect, url_for, json
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 import os
 from utils.pdf_extractor import extract_text_from_pdf
 from utils.gemini import parse_resume_with_gemini
+from utils.supabase_client import save_candidate, get_candidate_by_email, supabase
 
 candidate_bp = Blueprint('candidate', __name__, url_prefix='/candidate')
 
@@ -13,10 +14,6 @@ candidate_profiles = {}
 @candidate_bp.route('/', methods=['GET', 'POST'])
 # @login_required  # Temporarily disabled
 def index():
-    # Check if user is logged in
-    # if not current_user.is_authenticated:
-    #     return redirect(url_for('auth.login', next=request.url))
-        
     if request.method == 'POST':
         # Get form data
         full_name = request.form.get('full_name')
@@ -55,19 +52,19 @@ def index():
             flash('Error parsing resume', 'error')
             return redirect(url_for('candidate.index'))
         
-        # Store profile data (temporarily in memory)
+        # Store profile data temporarily
         profile = {
             'full_name': full_name,
             'email': email,
             'github': github,
             'linkedin': linkedin,
             'resume_filename': secure_filename(resume_file.filename),
-            'raw_gemini_response': raw_response,  # Store the raw Gemini response
-            'parsed_data': resume_data   # Store the parsed data
+            'raw_gemini_response': raw_response,
+            'parsed_data': resume_data
         }
-        # Use a default ID since we're not using login
         candidate_profiles['default'] = profile
         
+        # Show preview page
         return render_template('candidate/preview.html', 
                              profile=profile,
                              resume_data=resume_data)
@@ -75,9 +72,82 @@ def index():
     # GET request - show the form
     return render_template('candidate/dashboard.html')
 
+@candidate_bp.route('/save_profile', methods=['POST'])
+# @login_required  # Temporarily disabled
+def save_profile():
+    """Save the previewed profile to the database"""
+    try:
+        # Get form data
+        candidate_data = {
+            'name': request.form.get('full_name'),
+            'email': request.form.get('email'),
+            'phone': request.form.get('phone'),  # Add phone number
+            'github': request.form.get('github'),
+            'linkedin': request.form.get('linkedin'),
+            'skills': json.loads(request.form.get('skills', '[]')),
+            'experience_years': int(request.form.get('experience_years', 0)),
+            'education': request.form.get('education'),
+            'current_location': request.form.get('current_location')
+        }
+        
+        # Remove None values
+        candidate_data = {k: v for k, v in candidate_data.items() if v is not None}
+        
+        # Save to Supabase
+        candidate_id, is_update = save_candidate(candidate_data)
+        if not candidate_id:
+            flash('Error saving candidate data', 'error')
+            return redirect(url_for('candidate.index'))
+        
+        # Show appropriate message based on whether it was an update or new entry
+        if is_update:
+            flash('Profile updated successfully!', 'success')
+        else:
+            flash('Profile saved successfully!', 'success')
+            
+        # Redirect to profile page with the candidate ID
+        return redirect(url_for('candidate.profile', candidate_id=candidate_id))
+        
+    except Exception as e:
+        print(f"Error saving profile: {str(e)}")  # Add logging
+        flash(f'Error saving profile: {str(e)}', 'error')
+        return redirect(url_for('candidate.index'))
+
 @candidate_bp.route('/profile')
-def profile():
-    return "Candidate profile page (placeholder)"
+@candidate_bp.route('/profile/')
+@candidate_bp.route('/profile/<candidate_id>')
+@candidate_bp.route('/profile/<candidate_id>/')
+def profile(candidate_id=None):
+    """Display candidate profile"""
+    try:
+        # If no candidate_id provided, try to get the most recent one
+        if not candidate_id and 'default' in candidate_profiles:
+            # Get the email from the most recent profile
+            email = candidate_profiles['default']['email']
+            # Fetch the candidate from Supabase
+            candidate = get_candidate_by_email(email)
+            if candidate:
+                candidate_id = candidate['id']
+        
+        if not candidate_id:
+            flash('No candidate profile found', 'error')
+            return redirect(url_for('candidate.index'))
+            
+        # Fetch candidate data from Supabase
+        response = supabase.table('candidates').select('*').eq('id', candidate_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            flash('Candidate profile not found', 'error')
+            return redirect(url_for('candidate.index'))
+            
+        candidate = response.data[0]
+        
+        return render_template('candidate/profile.html', candidate=candidate)
+        
+    except Exception as e:
+        print(f"Error fetching candidate profile: {str(e)}")
+        flash('Error loading candidate profile', 'error')
+        return redirect(url_for('candidate.index'))
 
 @candidate_bp.route('/resume/upload', methods=['GET', 'POST'])
 @login_required

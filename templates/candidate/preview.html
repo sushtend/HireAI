@@ -1,93 +1,106 @@
 {% extends "base.html" %}
 
+{% block title %}Resume Preview{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold mb-8">Profile Preview</h1>
-    
-    <div class="max-w-2xl bg-white shadow-lg rounded-lg p-6">
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h1 class="text-2xl font-bold mb-6">Resume Preview</h1>
+        
         <!-- Basic Information -->
-        <div class="mb-8">
-            <h2 class="text-xl font-semibold mb-4">Basic Information</h2>
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-3">Basic Information</h2>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <p class="text-sm text-gray-600">Full Name</p>
+                    <p class="text-gray-600">Full Name</p>
                     <p class="font-medium">{{ profile.full_name }}</p>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600">Email</p>
+                    <p class="text-gray-600">Email</p>
                     <p class="font-medium">{{ profile.email }}</p>
                 </div>
+                {% if resume_data.phone %}
+                <div>
+                    <p class="text-gray-600">Phone</p>
+                    <p class="font-medium">{{ resume_data.phone }}</p>
+                </div>
+                {% endif %}
             </div>
         </div>
 
         <!-- Social Links -->
-        <div class="mb-8">
-            <h2 class="text-xl font-semibold mb-4">Social Links</h2>
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-3">Social Links</h2>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <p class="text-sm text-gray-600">GitHub</p>
+                    <p class="text-gray-600">GitHub</p>
                     <a href="{{ profile.github }}" target="_blank" class="text-blue-600 hover:underline">{{ profile.github }}</a>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600">LinkedIn</p>
+                    <p class="text-gray-600">LinkedIn</p>
                     <a href="{{ profile.linkedin }}" target="_blank" class="text-blue-600 hover:underline">{{ profile.linkedin }}</a>
                 </div>
             </div>
         </div>
 
-        <!-- Parsed Resume Information -->
-        <div class="mb-8">
-            <h2 class="text-xl font-semibold mb-4">Resume Analysis</h2>
-            
-            <!-- Skills -->
-            <div class="mb-4">
-                <h3 class="text-lg font-medium mb-2">Skills</h3>
-                <div class="flex flex-wrap gap-2">
-                    {% for skill in resume_data.skills %}
-                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{{ skill }}</span>
-                    {% endfor %}
+        <!-- Resume Analysis -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-3">Resume Analysis</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-gray-600">Skills</p>
+                    <div class="flex flex-wrap gap-2">
+                        {% for skill in resume_data.skills %}
+                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
                 </div>
+                <div>
+                    <p class="text-gray-600">Years of Experience</p>
+                    <p class="font-medium">{{ resume_data.experience_years }}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Education</p>
+                    <p class="font-medium">{{ resume_data.education }}</p>
+                </div>
+                {% if resume_data.current_location %}
+                <div>
+                    <p class="text-gray-600">Current Location</p>
+                    <p class="font-medium">{{ resume_data.current_location }}</p>
+                </div>
+                {% endif %}
             </div>
-
-            <!-- Experience -->
-            <div class="mb-4">
-                <h3 class="text-lg font-medium mb-2">Experience</h3>
-                <p class="text-gray-600">Years of Experience: {{ resume_data.experience_years }}</p>
-            </div>
-
-            <!-- Education -->
-            <div class="mb-4">
-                <h3 class="text-lg font-medium mb-2">Education</h3>
-                <p class="text-gray-600">{{ resume_data.education }}</p>
-            </div>
-
-            <!-- Location -->
-            {% if resume_data.current_location %}
-            <div class="mb-4">
-                <h3 class="text-lg font-medium mb-2">Location</h3>
-                <p class="text-gray-600">{{ resume_data.current_location }}</p>
-            </div>
-            {% endif %}
         </div>
 
         <!-- Raw Gemini Response -->
-        <div class="mb-8">
-            <h2 class="text-xl font-semibold mb-4">Raw Gemini Response</h2>
-            <div class="bg-gray-50 p-4 rounded-lg">
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-3">Raw Gemini Response</h2>
+            <div class="bg-gray-50 p-4 rounded">
                 <pre class="whitespace-pre-wrap text-sm">{{ profile.raw_gemini_response }}</pre>
             </div>
         </div>
 
         <!-- Action Buttons -->
-        <div class="flex gap-4">
-            <a href="{{ url_for('candidate.index') }}" 
-               class="flex-1 bg-gray-600 text-white text-center py-2 px-4 rounded-lg hover:bg-gray-700">
+        <div class="flex justify-between mt-8">
+            <a href="{{ url_for('candidate.index') }}" class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
                 Edit Profile
             </a>
-            <button onclick="window.print()" 
-                    class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700">
-                Print Preview
-            </button>
+            <form action="{{ url_for('candidate.save_profile') }}" method="POST" class="inline">
+                <input type="hidden" name="full_name" value="{{ profile.full_name }}">
+                <input type="hidden" name="email" value="{{ profile.email }}">
+                <input type="hidden" name="github" value="{{ profile.github }}">
+                <input type="hidden" name="linkedin" value="{{ profile.linkedin }}">
+                <input type="hidden" name="phone" value="{{ resume_data.phone }}">
+                <input type="hidden" name="skills" value='{{ resume_data.skills|tojson|safe }}'>
+                <input type="hidden" name="experience_years" value="{{ resume_data.experience_years }}">
+                <input type="hidden" name="education" value="{{ resume_data.education }}">
+                {% if resume_data.current_location %}
+                <input type="hidden" name="current_location" value="{{ resume_data.current_location }}">
+                {% endif %}
+                <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                    Save to Database
+                </button>
+            </form>
         </div>
     </div>
 </div>
