@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, g
 from flask_login import LoginManager, login_required, current_user
 import os
 from dotenv import load_dotenv
@@ -16,17 +16,25 @@ app = Flask(__name__,
 )
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-change-in-production')
 
-# Initialize PostHog
+# --- PostHog Initialization (Server-side - not used for client-side tracking) ---
 # posthog = Posthog(
 #     project_api_key=os.getenv('POSTHOG_API_KEY'),
 #     host=os.getenv('POSTHOG_HOST', 'https://app.posthog.com')
 # )
+# ------------------------------------------------------------------------------
 
-# Initialize Supabase
-# supabase: Client = create_client(
-#     os.getenv('SUPABASE_URL'),
-#     os.getenv('SUPABASE_KEY')
-# )
+# --- PostHog Client-Side Config ---
+POSTHOG_API_KEY = os.getenv('POSTHOG_API_KEY')
+POSTHOG_HOST = os.getenv('POSTHOG_HOST', 'https://us.i.posthog.com') # Use provided host
+
+@app.context_processor
+def inject_posthog_vars():
+    """Inject PostHog environment variables into all templates."""
+    return {
+        'posthog_api_key': POSTHOG_API_KEY,
+        'posthog_host': POSTHOG_HOST
+    }
+# ----------------------------------
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -67,4 +75,6 @@ if __name__ == '__main__':
     print("Templates folder:", app.template_folder)
     print("Static folder:", app.static_folder)
     print("Environment variables loaded:", bool(os.getenv('SECRET_KEY')))
+    print(f"PostHog API Key loaded: {bool(POSTHOG_API_KEY)}")
+    print(f"PostHog Host loaded: {POSTHOG_HOST}")
     app.run(debug=True) 

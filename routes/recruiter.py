@@ -4,7 +4,9 @@ from models.candidate import Candidate
 from utils.gemini import parse_resume_with_gemini
 from utils.supabase_client import supabase
 from utils.ranker import rank_candidates
+from utils.background_quality import score_github_background_api, score_linkedin_background, score_public_presence
 import json
+import os # Import os to get GITHUB_TOKEN
 
 recruiter_bp = Blueprint('recruiter', __name__, url_prefix='/recruiter')
 
@@ -34,14 +36,64 @@ Return ONLY the JSON object, no explanation or additional text. If a field is no
     except Exception as e:
         return None
 
+def calculate_background_score(candidate_data: dict) -> int:
+    """
+    Calculate a combined background score for a candidate.
+    This is a simple combination of individual scores for now.
+    """
+    github_url = candidate_data.get('github')
+    linkedin_url = candidate_data.get('linkedin')
+    name = candidate_data.get('name')
+    candidate_id = candidate_data.get('id', 'Unknown ID') # Get candidate ID for logging
+    
+    github_score = 0
+    linkedin_score = 0
+    public_presence_score = 0
+
+    # Calculate GitHub score
+    if github_url:
+        try:
+            github_token = os.getenv("GITHUB_TOKEN")
+            github_score = score_github_background_api(github_url, github_token)
+        except Exception as e:
+            print(f"Error calculating GitHub score for candidate {candidate_id} ({github_url}): {e}")
+
+    # Calculate LinkedIn score
+    if linkedin_url:
+        try:
+            linkedin_score = score_linkedin_background(linkedin_url)
+        except Exception as e:
+            print(f"Error calculating LinkedIn score for candidate {candidate_id} ({linkedin_url}): {e}")
+
+    # Calculate Public Presence score
+    if name:
+         try:
+            public_presence_score = score_public_presence(name, github_url, linkedin_url)
+         except Exception as e:
+             print(f"Error calculating Public Presence score for candidate {candidate_id} ({name}): {e}")
+
+    # Simple weighted combination (adjust weights as needed)
+    # Max possible combined score with current mock logic: ~100 (GH API) + 80 (LI placeholder) + 80 (PP placeholder) = ~260
+    # We'll scale it to 100, but actual scores will likely be lower.
+    
+    combined_score = (github_score * 0.4) + (linkedin_score * 0.3) + (public_presence_score * 0.3)
+    
+    # Ensure score is between 0 and 100
+    return min(max(int(combined_score), 0), 100)
+
 @recruiter_bp.route('/', methods=['GET', 'POST'])
 # @login_required  # Temporarily disabled for testing
 def index():
     """
     Recruiter dashboard route that handles both GET and POST requests.
     GET: Shows the search interface
-    POST: Processes search query and returns matching candidates
+    POST: Processes search query and returns matching candidates with background scores
     """
+    search_query = ""
+    candidates = []
+    structured_query = {}
+    filters = {}
+    
     if request.method == 'POST':
         # Get the search query from the form
         search_query = request.form.get('search_query', '').strip()
@@ -86,8 +138,14 @@ def index():
             response = query.execute()
             candidates = response.data
             
-            # Step 3: Rank the candidates
-            ranked_candidates = rank_candidates(search_query, candidates)
+            # Calculate background scores and add to candidates
+            for candidate in candidates:
+                candidate['background_score'] = calculate_background_score(candidate)
+            
+            # Step 3: Rank the candidates (can use background score here later)
+            # For now, rank_candidates uses a dummy score, but we can update it.
+            # ranked_candidates = rank_candidates(search_query, candidates)
+            ranked_candidates = sorted(candidates, key=lambda x: x.get('background_score', 0), reverse=True)
             
             return render_template('recruiter/dashboard.html',
                                  search_query=search_query,
@@ -96,11 +154,12 @@ def index():
                                  filters=filters)
             
         except Exception as e:
+            print(f"Error searching for candidates: {e}") # Keep error logging for backend issues
             flash('Error searching for candidates', 'error')
             return render_template('recruiter/dashboard.html')
     
     # GET request - show the search interface
-    return render_template('recruiter/dashboard.html')
+    return render_template('recruiter/dashboard.html', search_query=search_query, candidates=candidates, structured_query=structured_query, filters=filters)
 
 @recruiter_bp.route('/search')
 @login_required

@@ -123,7 +123,7 @@
                                 </div>
                                 <div class="text-right">
                                     <span class="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                                        Match Score: {{ candidate.rank_score }}%
+                                        Score: {{ candidate.background_score }}%
                                     </span>
                                 </div>
                             </div>
@@ -144,4 +144,13 @@
         </div>
     </div>
 </div>
+
+{% if search_query %}
+<script>
+    posthog.capture('recruiter_search', {
+        query: '{{ search_query|escape }}'
+    });
+</script>
+{% endif %}
+
 {% endblock %} 
